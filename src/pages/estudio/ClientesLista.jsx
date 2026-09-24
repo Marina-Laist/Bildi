@@ -1,37 +1,42 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
 import { Card, CardContent, CardHeader } from '../../components/ui/Card'
-import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
-import { Search, Mail, Plus, Building2, HardHat, ExternalLink, Filter } from 'lucide-react'
-
-const clientes = [
-  { id: 1, nombre: 'Desarrollos Norte SA', tipo: 'desarrollista', email: 'contacto@desnorte.com', cuit: '30-71234567-2', estado: 'activo', obras: 3, docs: 24, incorporado: '2024-02-10' },
-  { id: 2, nombre: 'Constructora Sur SRL', tipo: 'constructora', email: 'admin@constsur.com', cuit: '30-65432187-9', estado: 'activo', obras: 1, docs: 18, incorporado: '2024-03-22' },
-  { id: 3, nombre: 'Torres del Parque SA', tipo: 'desarrollista', email: 'info@torresparque.com', cuit: '30-70987654-1', estado: 'activo', obras: 2, docs: 31, incorporado: '2023-11-05' },
-  { id: 4, nombre: 'Arq. Torres & Asoc.', tipo: 'constructora', email: 'arq.torres@estudio.com', cuit: '20-25436789-3', estado: 'activo', obras: 1, docs: 9, incorporado: '2025-01-14' },
-  { id: 5, nombre: 'Grupo Inmobiliario GR', tipo: 'desarrollista', email: 'gestion@grupogr.com', cuit: '30-68765432-7', estado: 'activo', obras: 4, docs: 45, incorporado: '2023-09-01' },
-  { id: 6, nombre: 'Obras y Proyectos SRL', tipo: 'constructora', email: 'contacto@obrasproy.com', cuit: '30-54321098-6', estado: 'inactivo', obras: 0, docs: 7, incorporado: '2022-06-18' },
-]
+import { Search, Mail, Plus, Paperclip } from 'lucide-react'
 
 export default function ClientesLista() {
+  const [clientes, setClientes] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [errorCarga, setErrorCarga] = useState('')
   const [busqueda, setBusqueda] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('todos')
-  const [filtroEstado, setFiltroEstado] = useState('todos')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteTipo, setInviteTipo] = useState('desarrollista')
   const [showInvite, setShowInvite] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState(false)
 
-  const clientesFiltrados = clientes.filter(c => {
-    const matchBusq = c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      c.email.toLowerCase().includes(busqueda.toLowerCase()) ||
-      c.cuit.includes(busqueda)
-    const matchTipo = filtroTipo === 'todos' || c.tipo === filtroTipo
-    const matchEstado = filtroEstado === 'todos' || c.estado === filtroEstado
-    return matchBusq && matchTipo && matchEstado
-  })
+  // Trae los clientes guardados en Supabase, del más nuevo al más viejo
+  useEffect(() => {
+    async function cargarClientes() {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) {
+        setErrorCarga('No se pudieron cargar los clientes: ' + error.message)
+      } else {
+        setClientes(data)
+      }
+      setCargando(false)
+    }
+    cargarClientes()
+  }, [])
+
+  const texto = busqueda.toLowerCase()
+  const clientesFiltrados = clientes.filter(c =>
+    (c.nombre || '').toLowerCase().includes(texto) ||
+    (c.contacto || '').toLowerCase().includes(texto)
+  )
 
   function handleInvite(e) {
     e.preventDefault()
@@ -115,32 +120,11 @@ export default function ClientesLista() {
               <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar por nombre, email o CUIT..."
+                placeholder="Buscar por nombre o contacto..."
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter size={14} className="text-slate-400" />
-              <select
-                value={filtroTipo}
-                onChange={e => setFiltroTipo(e.target.value)}
-                className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
-              >
-                <option value="todos">Todos los tipos</option>
-                <option value="desarrollista">Desarrollistas</option>
-                <option value="constructora">Constructoras</option>
-              </select>
-              <select
-                value={filtroEstado}
-                onChange={e => setFiltroEstado(e.target.value)}
-                className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
-              >
-                <option value="todos">Todos los estados</option>
-                <option value="activo">Activos</option>
-                <option value="inactivo">Inactivos</option>
-              </select>
             </div>
           </div>
         </CardContent>
@@ -153,55 +137,42 @@ export default function ClientesLista() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cliente</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">CUIT</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Obras</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Documentos</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Acciones</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Contacto</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Archivo</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha de alta</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {clientesFiltrados.length === 0 ? (
+              {cargando ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
-                    No se encontraron clientes con los filtros aplicados
+                  <td colSpan={4} className="text-center py-12 text-slate-400">Cargando clientes...</td>
+                </tr>
+              ) : errorCarga ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-12 text-red-500">{errorCarga}</td>
+                </tr>
+              ) : clientesFiltrados.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-12 text-slate-400">
+                    {clientes.length === 0 ? 'Todavía no cargaste ningún cliente' : 'No se encontraron clientes con esa búsqueda'}
                   </td>
                 </tr>
               ) : (
                 clientesFiltrados.map(c => (
-                  <tr key={c.id} className="hover:bg-slate-50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-medium text-slate-800">{c.nombre}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{c.email}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-slate-600 font-mono text-xs">{c.cuit}</td>
+                  <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-slate-800">{c.nombre}</td>
+                    <td className="px-4 py-4 text-slate-600">{c.contacto}</td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-1.5">
-                        {c.tipo === 'desarrollista'
-                          ? <Building2 size={13} className="text-purple-500" />
-                          : <HardHat size={13} className="text-green-500" />
-                        }
-                        <Badge variant={c.tipo === 'desarrollista' ? 'purple' : 'green'}>
-                          {c.tipo === 'desarrollista' ? 'Desarrollista' : 'Constructora'}
-                        </Badge>
-                      </div>
+                      {c.archivo_url ? (
+                        <a href={c.archivo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
+                          <Paperclip size={13} /> Ver archivo
+                        </a>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
-                    <td className="px-4 py-4 text-center text-slate-600">{c.obras}</td>
-                    <td className="px-4 py-4 text-center text-slate-600">{c.docs}</td>
-                    <td className="px-4 py-4">
-                      <Badge variant={c.estado === 'activo' ? 'green' : 'default'}>
-                        {c.estado === 'activo' ? 'Activo' : 'Inactivo'}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link to={`/${c.tipo}/${c.id}`}>
-                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ExternalLink size={14} /> Ver ficha
-                        </Button>
-                      </Link>
+                    <td className="px-6 py-4 text-slate-600">
+                      {new Date(c.created_at).toLocaleDateString('es-AR')}
                     </td>
                   </tr>
                 ))
